@@ -1,0 +1,77 @@
+groups:
+  # ===========================================================================
+  # Group 1: Zero-Location Architectural Invariant Alerts (P0 Blocker)
+  # ===========================================================================
+  - name: zero_location_invariants
+    rules:
+      - alert: ZeroLocationViolationDetected
+        expr: increase(zero_location_geo_violations_total[1m]) > 0
+        for: 0m
+        labels:
+          severity: p0_critical
+          team: security_and_privacy
+        annotations:
+          summary: "CRITICAL: Geographic coordinate or location token detected in recommendation engine!"
+          description: "A geo entity or location coordinate was received or processed by the feed ranking engine. This breaches the platform's core architectural invariant. Immediate emergency investigation required."
+          runbook_url: "https://wiki.interest.internal/runbooks/zero-location-incident"
+
+  # ===========================================================================
+  # Group 2: Feed Latency & High-Availability SLO Alerts (P0 Blocker)
+  # ===========================================================================
+  - name: feed_slo_alerts
+    rules:
+      - alert: FeedP95LatencyTooHigh
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{route="/api/v1/feed"}[5m])) by (le)) > 0.150
+        for: 3m
+        labels:
+          severity: p0_critical
+          team: core_feed
+        annotations:
+          summary: "Feed p95 latency exceeded 150ms SLO threshold"
+          description: "The 95th percentile response latency for the infinite feed engine is {{ $value }}s, breaching the sub-120ms target. Autoscale ECS or check Redis cluster."
+          runbook_url: "https://wiki.interest.internal/runbooks/feed-latency-degradation"
+
+      - alert: HighHttp5xxErrorRate
+        expr: (sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))) > 0.001
+        for: 2m
+        labels:
+          severity: p0_critical
+          team: devops_sre
+        annotations:
+          summary: "HTTP 5xx Server Error Rate exceeded 0.1%"
+          description: "Server error rate is currently at {{ $value | humanizePercentage }}. Immediate canary rollback candidate."
+
+  # ===========================================================================
+  # Group 3: Database & Queue Infrastructure Alerts (P1 Warning)
+  # ===========================================================================
+  - name: infrastructure_alerts
+    rules:
+      - alert: DatabaseConnectionPoolHigh
+        expr: (pg_stat_activity_count / pg_settings_max_connections) > 0.85
+        for: 3m
+        labels:
+          severity: p1_warning
+          team: data_infra
+        annotations:
+          summary: "PostgreSQL connection pool utilization > 85%"
+          description: "Postgres connection pool is reaching saturation: {{ $value | humanizePercentage }} utilized."
+
+      - alert: BullMQTranscodeQueueLagging
+        expr: bullmq_queue_waiting{queue="video-transcode"} > 100
+        for: 5m
+        labels:
+          severity: p1_warning
+          team: media_processing
+        annotations:
+          summary: "Video transcoding queue backlog exceeded 100 jobs"
+          description: "Creators are experiencing transcoding delays. Scale up worker Fargate tasks."
+
+      - alert: RedisMemoryUsageHigh
+        expr: (redis_memory_used_bytes / redis_memory_max_bytes) > 0.85
+        for: 5m
+        labels:
+          severity: p1_warning
+          team: devops_sre
+        annotations:
+          summary: "Redis memory utilization > 85%"
+          description: "Redis is approaching maxmemory eviction threshold: {{ $value | humanizePercentage }} utilized."

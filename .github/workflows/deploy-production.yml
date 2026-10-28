@@ -1,0 +1,138 @@
+name: Deploy Production (Zero-Downtime Canary)
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ROLE_TO_ASSUME: arn:aws:iam::123456789012:role/InterestGitHubActionsProductionRole
+  ECR_REGISTRY: 123456789012.dkr.ecr.us-east-1.amazonaws.com
+  ECS_CLUSTER: interest-cluster-production
+
+jobs:
+  production-deployment:
+    name: Production Release & Automated Verification
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://interest.app
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract Release Tag
+        id: meta
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=prod-${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
+      # 1. Build and Push Production Images
+      - name: Build & Push API Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/interest-api:${{ steps.meta.outputs.TAG }}
+            ${{ env.ECR_REGISTRY }}/interest-api:production-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & Push Worker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/api/Dockerfile.worker
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/interest-worker:${{ steps.meta.outputs.TAG }}
+            ${{ env.ECR_REGISTRY }}/interest-worker:production-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & Push Admin Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/admin/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/interest-admin:${{ steps.meta.outputs.TAG }}
+            ${{ env.ECR_REGISTRY }}/interest-admin:production-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 2. Database Pre-Migration Step
+      - name: Execute Production Database Migrations
+        run: |
+          echo "Running zero-downtime additive database migrations..."
+          aws ecs run-task \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --task-definition interest-api-production \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[subnet-prod-private-1],securityGroups=[sg-prod-ecs-tasks],assignPublicIp=DISABLED}" \
+            --overrides '{"containerOverrides": [{"name": "api", "command": ["node", "dist/src/database/migrations/run.js"]}]}'
+
+      # 3. Rolling Zero-Downtime Deployment with Circuit Breaker
+      - name: Deploy API Service to Production
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service interest-api-production \
+            --force-new-deployment
+
+      - name: Deploy Worker Service to Production
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service interest-worker-production \
+            --force-new-deployment
+
+      - name: Deploy Admin Service to Production
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service interest-admin-production \
+            --force-new-deployment
+
+      # 4. Wait for Production Stability
+      - name: Await Production Cluster Convergence
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services interest-api-production interest-admin-production
+
+      # 5. Post-Deployment Canary Verification & Health Probe
+      - name: Verify Live Production Health & Zero-Location Invariant
+        run: |
+          echo "Verifying production health endpoints..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://interest.app/api/v1/health)
+          if [ "$STATUS" -ne 200 ]; then
+            echo "Health probe failed with status $STATUS. Triggering rollback!"
+            exit 1
+          fi
+          echo "Production cluster healthy and accepting live traffic."

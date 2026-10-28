@@ -1,0 +1,48 @@
+{
+  "environments": {
+    "local": {
+      "API_BASE_URL": "http://localhost:3000",
+      "S3_MOCK_URL": "http://localhost:3000/mock-storage/upload"
+    },
+    "staging": {
+      "API_BASE_URL": "https://staging-api.interest.internal",
+      "S3_MOCK_URL": "https://staging-s3-upload.interest.internal"
+    },
+    "canary": {
+      "API_BASE_URL": "https://canary-api.interest.internal",
+      "S3_MOCK_URL": "https://canary-s3.interest.internal"
+    }
+  },
+  "sloThresholds": {
+    "feed": {
+      "p95LatencyMs": 120,
+      "p99LatencyMs": 250,
+      "maxErrorRate": 0.0001,
+      "concurrencyVUs": 10000
+    },
+    "upload": {
+      "p95PresignLatencyMs": 80,
+      "p95TranscodeWaitMs": 2500,
+      "maxErrorRate": 0.0005,
+      "concurrentCreators": 1000
+    }
+  },
+  "zeroLocationGuarantees": {
+    "forbiddenHeaders": [
+      "X-Geo-Country",
+      "X-Geo-City",
+      "X-Geo-Region",
+      "CF-IPCountry",
+      "X-Forwarded-Geo"
+    ],
+    "prohibitedBodyKeys": [
+      "latitude",
+      "longitude",
+      "city",
+      "state",
+      "countryCode",
+      "postalCode",
+      "metroCode"
+    ]
+  }
+}

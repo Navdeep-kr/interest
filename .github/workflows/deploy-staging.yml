@@ -1,0 +1,114 @@
+name: Deploy Staging Environment
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ROLE_TO_ASSUME: arn:aws:iam::123456789012:role/InterestGitHubActionsStagingRole
+  ECR_REGISTRY: 123456789012.dkr.ecr.us-east-1.amazonaws.com
+  ECS_CLUSTER: interest-cluster-staging
+
+jobs:
+  build-and-deploy-staging:
+    name: Build ECR Images & Deploy to ECS Staging
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 1. Build and Push API Image
+      - name: Build & Push API Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/interest-api:staging-${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/interest-api:staging-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 2. Build and Push Worker Image
+      - name: Build & Push Transcode Worker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/api/Dockerfile.worker
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/interest-worker:staging-${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/interest-worker:staging-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 3. Build and Push Admin Image
+      - name: Build & Push Admin Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/admin/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/interest-admin:staging-${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/interest-admin:staging-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 4. Execute Database Migrations in ECS One-off Task
+      - name: Run Database Migrations
+        run: |
+          aws ecs run-task \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --task-definition interest-api-staging \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[subnet-staging-private-1],securityGroups=[sg-staging-ecs-tasks],assignPublicIp=DISABLED}" \
+            --overrides '{"containerOverrides": [{"name": "api", "command": ["node", "dist/src/database/migrations/run.js"]}]}'
+
+      # 5. Deploy Updated Tasks to ECS Services
+      - name: Deploy API Service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service interest-api-staging \
+            --force-new-deployment
+
+      - name: Deploy Transcode Worker Service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service interest-worker-staging \
+            --force-new-deployment
+
+      - name: Deploy Admin Service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service interest-admin-staging \
+            --force-new-deployment
+
+      # 6. Verify Service Stability
+      - name: Wait for Services Stability
+        run: |
+          aws ecs wait services-stable --cluster ${{ env.ECS_CLUSTER }} --services interest-api-staging interest-admin-staging

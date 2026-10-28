@@ -1,0 +1,221 @@
+name: Continuous Integration & Security Audits
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Zero-Location Architectural Enforcement & Linting
+  # ---------------------------------------------------------------------------
+  zero-location-and-lint:
+    name: Zero-Location Architectural Invariant & Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Fail-Closed Zero-Location Architectural Verification
+        run: node scripts/verify-zero-location.js
+
+      - name: Skipped Tests Policy Enforcer (Fail-Closed)
+        run: node scripts/check-skipped-tests.js
+
+      - name: ESLint Monorepo
+        run: npm run lint
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Backend Unit, Migration & Critical End-to-End User Journeys
+  # ---------------------------------------------------------------------------
+  backend-test:
+    name: Backend Test Suites & Critical E2E Journeys
+    runs-on: ubuntu-latest
+    needs: [zero-location-and-lint]
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Shared Packages
+        run: npm run build:shared
+
+      - name: Run Database Migration Integrity & Invariant Linter
+        run: npm --prefix apps/api test -- test/foundations/migration-verification.spec.ts
+
+      - name: Run Critical End-to-End User Journeys (Release Gate Suite)
+        run: npm --prefix apps/api test -- test/e2e/critical-user-journeys.e2e-spec.ts
+
+      - name: Run Jest Test Suites
+        run: npm --prefix apps/api test
+        env:
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+
+  # ---------------------------------------------------------------------------
+  # Job 3: OWASP Top 10 API Security Verification
+  # ---------------------------------------------------------------------------
+  owasp-security:
+    name: OWASP Top 10 API Security Verification
+    runs-on: ubuntu-latest
+    needs: [zero-location-and-lint]
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Shared Packages
+        run: npm run build:shared
+
+      - name: Run OWASP Top 10 Test Suite
+        run: npm run test:security
+
+  # ---------------------------------------------------------------------------
+  # Job 4: Next.js Admin Panel Build Verification
+  # ---------------------------------------------------------------------------
+  admin-build:
+    name: Next.js 14 Admin Panel Build & SSG Verification
+    runs-on: ubuntu-latest
+    needs: [zero-location-and-lint]
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Shared Packages
+        run: npm run build:shared
+
+      - name: Build Next.js Admin Panel
+        run: npm --prefix apps/admin run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+  # ---------------------------------------------------------------------------
+  # Job 5: Docker Container Build Verification
+  # ---------------------------------------------------------------------------
+  docker-validation:
+    name: Container Build Verification (API, Worker, Admin)
+    runs-on: ubuntu-latest
+    needs: [backend-test, owasp-security, admin-build]
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate API Dockerfile
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: false
+          tags: interest-api:test
+
+      - name: Validate Worker Dockerfile
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/api/Dockerfile.worker
+          push: false
+          tags: interest-worker:test
+
+      - name: Validate Admin Dockerfile
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/admin/Dockerfile
+          push: false
+          tags: interest-admin:test
+
+  # ---------------------------------------------------------------------------
+  # Job 6: Flutter Static Analysis & Test Verification
+  # ---------------------------------------------------------------------------
+  flutter-test:
+    name: Flutter Analyzer & Widget/Unit Test Suites
+    runs-on: ubuntu-latest
+    needs: [zero-location-and-lint]
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.3'
+          channel: 'stable'
+          cache: true
+
+      - name: Flutter Dependencies Check
+        run: flutter pub get
+        working-directory: apps/mobile_flutter
+
+      - name: Run Flutter Analyzer (Format & Static Analysis)
+        run: flutter analyze --no-fatal-infos
+        working-directory: apps/mobile_flutter
+
+      - name: Run Flutter Unit & Widget Test Suites
+        run: flutter test --no-pub
+        working-directory: apps/mobile_flutter
+

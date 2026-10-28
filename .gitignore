@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing and coverage
+coverage/
+*.lcov
+
+# Production & Build outputs
+dist/
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+
+# Android & iOS build artifacts
+*.apk
+*.aab
+*.keystore
+!debug.keystore
+local.properties
+.gradle/
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+
+# Environment variables & secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+
+# IDE & OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.class
+*.log
+.idea/
+*.iml
+.vscode/
+
+# Turbo cache
+.turbo/

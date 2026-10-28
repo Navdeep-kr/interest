@@ -1,0 +1,49 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'interest-production'
+    region: 'us-east-1'
+
+rule_files:
+  - 'alertmanager/alerts.yml'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  # 1. NestJS Core API Metrics
+  - job_name: 'interest-api'
+    metrics_path: '/api/v1/metrics'
+    scheme: 'http'
+    dns_sd_configs:
+      - names:
+          - 'api.interest.internal'
+        type: 'A'
+        port: 3000
+
+  # 2. BullMQ Video Transcoder Workers
+  - job_name: 'interest-transcode-workers'
+    metrics_path: '/metrics'
+    dns_sd_configs:
+      - names:
+          - 'worker.interest.internal'
+        type: 'A'
+        port: 9102
+
+  # 3. Redis Prometheus Exporter
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # 4. PostgreSQL & pgvector Prometheus Exporter
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # 5. Node / Container Host Exporters
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']

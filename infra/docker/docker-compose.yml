@@ -1,0 +1,150 @@
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. PostgreSQL 16 with pgvector Extension
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: interest_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: interest_user
+      POSTGRES_PASSWORD: interest_pass
+      POSTGRES_DB: interest_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../apps/api/src/database/migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U interest_user -d interest_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # 2. Redis 7 for Queues (BullMQ), Bloom Filters, and Vector Caching
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: interest_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # 3. MinIO: S3-Compatible Local Storage
+  # ---------------------------------------------------------------------------
+  minio:
+    image: minio/minio:RELEASE.2024-04-18T19-09-19Z
+    container_name: interest_minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+  createbuckets:
+    image: minio/mc:RELEASE.2024-04-18T16-45-29Z
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set local http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb local/interest-reels;
+      /usr/bin/mc anonymous set download local/interest-reels;
+      exit 0;
+      "
+
+  # ---------------------------------------------------------------------------
+  # 4. NestJS Core API
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.api
+    container_name: interest_api
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://interest_user:interest_pass@postgres:5432/interest_db
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET_NAME: interest-reels
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      CDN_BASE_URL: http://localhost:9000/interest-reels
+      JWT_SECRET: production-secret-interest-jwt-token-key-32chars
+      JWT_REFRESH_SECRET: production-secret-interest-refresh-token-key-32chars
+
+  # ---------------------------------------------------------------------------
+  # 5. BullMQ FFmpeg Video Transcode Worker
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.worker
+    container_name: interest_worker
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://interest_user:interest_pass@postgres:5432/interest_db
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET_NAME: interest-reels
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      CDN_BASE_URL: http://localhost:9000/interest-reels
+
+  # ---------------------------------------------------------------------------
+  # 6. Next.js Admin Operations Portal
+  # ---------------------------------------------------------------------------
+  admin:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.admin
+    container_name: interest_admin
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      NEXT_PUBLIC_API_URL: http://localhost:3000/api/v1
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:

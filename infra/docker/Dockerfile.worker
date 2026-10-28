@@ -1,0 +1,44 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+RUN apk add --no-cache python3 make g++ libc6-compat
+
+COPY package.json package-lock.json* ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/api/package.json ./apps/api/
+
+RUN npm ci --legacy-peer-deps
+
+COPY packages/shared/ ./packages/shared/
+WORKDIR /app/packages/shared
+RUN npm run build
+
+WORKDIR /app/apps/api
+COPY apps/api/tsconfig*.json ./
+COPY apps/api/src/ ./src/
+RUN npm run build
+
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+ENV NODE_ENV=production
+ENV WORKER_CONCURRENCY=4
+
+RUN apk add --no-cache dumb-init ffmpeg fontconfig ttf-dejavu
+RUN addgroup -S interest && adduser -S interest -G interest
+
+COPY package.json ./
+COPY packages/shared/ ./packages/shared/
+COPY apps/api/package.json ./apps/api/
+
+WORKDIR /app
+RUN npm ci --only=production --legacy-peer-deps
+
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+RUN mkdir -p /tmp/transcode && chown -R interest:interest /tmp/transcode /app
+
+USER interest
+WORKDIR /app/apps/api
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["node", "dist/src/worker.js"]

@@ -1,0 +1,100 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "Zero-Location Invariant Audit Counter (Target: 0)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum(zero_location_geo_violations_total)", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Feed Request Throughput (RPS)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 0 },
+      "targets": [
+        { "expr": "sum(rate(http_requests_total{route=\"/api/v1/feed\"}[1m]))", "legendFormat": "Feed RPS", "refId": "A" }
+      ]
+    },
+    {
+      "title": "Feed Response Latency (p50, p95, p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 0 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{route=\"/api/v1/feed\"}[1m])) by (le)) * 1000", "legendFormat": "p50 (ms)", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{route=\"/api/v1/feed\"}[1m])) by (le)) * 1000", "legendFormat": "p95 (ms) [SLO < 120ms]", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{route=\"/api/v1/feed\"}[1m])) by (le)) * 1000", "legendFormat": "p99 (ms)", "refId": "C" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ms" }
+      }
+    },
+    {
+      "title": "Redis Cache Hit Ratio (%)",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 4 },
+      "targets": [
+        { "expr": "rate(feed_cache_hits_total[5m]) / (rate(feed_cache_hits_total[5m]) + rate(feed_cache_misses_total[5m])) * 100", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 75 },
+              { "color": "green", "value": 85 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "BullMQ Transcode Queue Backlog",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 6, "y": 8 },
+      "targets": [
+        { "expr": "bullmq_queue_waiting{queue=\"video-transcode\"}", "legendFormat": "Waiting Jobs", "refId": "A" },
+        { "expr": "bullmq_queue_active{queue=\"video-transcode\"}", "legendFormat": "Active Transcodes", "refId": "B" }
+      ]
+    },
+    {
+      "title": "HTTP Error Rates (4xx / 5xx)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 },
+      "targets": [
+        { "expr": "sum(rate(http_requests_total{status=~\"4..\"}[1m]))", "legendFormat": "4xx Errors", "refId": "A" },
+        { "expr": "sum(rate(http_requests_total{status=~\"5..\"}[1m]))", "legendFormat": "5xx Errors (SLO < 0.1%)", "refId": "B" }
+      ]
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["interest", "feed", "production"],
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "utc",
+  "title": "Interest - Production Core Feed & Zero-Location SLO Dashboard",
+  "version": 1
+}
