@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/superfan_subscription_model.dart';
+import '../models/creator_bounty_model.dart';
 
 /// Central state manager for Instagram-style Superfans & Creator Subscriptions.
 class SuperfansManager extends ChangeNotifier {
@@ -152,6 +153,98 @@ class SuperfansManager extends ChangeNotifier {
     );
     notifyListeners();
     return true;
+  }
+
+  final List<CreatorBounty> _bounties = [
+    CreatorBounty(
+      id: 'bounty_1',
+      creatorId: 'c_synth_dev',
+      creatorUsername: 'synth_coder',
+      sponsorUsername: 'alex_mobile',
+      sponsorAvatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200',
+      title: 'Review Flutter 3.24 Impeller Engine',
+      description: 'Break down the frame pacing and Vulkan rasterization improvements in a 60-second Reel.',
+      rewardAmount: 50.0,
+      status: BountyStatus.open,
+      createdAt: DateTime.now().subtract(const Duration(hours: 18)),
+    ),
+    CreatorBounty(
+      id: 'bounty_2',
+      creatorId: 'c_synth_dev',
+      creatorUsername: 'synth_coder',
+      sponsorUsername: 'sarah_design',
+      sponsorAvatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200',
+      title: 'Speedrun 60s CSS / Flutter Art',
+      description: 'Create a generative animated neon glowing sphere using CustomPainter.',
+      rewardAmount: 35.0,
+      status: BountyStatus.completed,
+      fulfillmentUrl: 'https://interest.app/reel/reel_glow_sphere',
+      createdAt: DateTime.now().subtract(const Duration(days: 2)),
+      completedAt: DateTime.now().subtract(const Duration(hours: 4)),
+    ),
+    CreatorBounty(
+      id: 'bounty_3',
+      creatorId: 'c_synth_dev',
+      creatorUsername: 'synth_coder',
+      sponsorUsername: 'crypto_whale',
+      sponsorAvatarUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=200',
+      title: 'Synthesize Cyberpunk Guitar Solo',
+      description: 'Record an original synthwave lead riff over our retro beat track.',
+      rewardAmount: 100.0,
+      status: BountyStatus.inProgress,
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
+    ),
+  ];
+
+  List<CreatorBounty> get bounties => List.unmodifiable(_bounties);
+
+  void createBounty({
+    required String creatorId,
+    required String creatorUsername,
+    required String sponsorUsername,
+    String? sponsorAvatarUrl,
+    required String title,
+    required String description,
+    required double rewardAmount,
+  }) {
+    final bounty = CreatorBounty(
+      id: 'bounty_${DateTime.now().millisecondsSinceEpoch}',
+      creatorId: creatorId,
+      creatorUsername: creatorUsername,
+      sponsorUsername: sponsorUsername,
+      sponsorAvatarUrl: sponsorAvatarUrl,
+      title: title,
+      description: description,
+      rewardAmount: rewardAmount,
+      status: BountyStatus.open,
+      createdAt: DateTime.now(),
+    );
+    _bounties.insert(0, bounty);
+    notifyListeners();
+  }
+
+  void fulfillBounty(String bountyId, String fulfillmentUrl) {
+    final index = _bounties.indexWhere((b) => b.id == bountyId);
+    if (index != -1) {
+      _bounties[index] = _bounties[index].copyWith(
+        status: BountyStatus.completed,
+        fulfillmentUrl: fulfillmentUrl,
+        completedAt: DateTime.now(),
+      );
+      notifyListeners();
+    }
+  }
+
+  void releaseBountyPayout(String bountyId) {
+    final index = _bounties.indexWhere((b) => b.id == bountyId);
+    if (index != -1) {
+      final bounty = _bounties[index];
+      _bounties[index] = bounty.copyWith(
+        status: BountyStatus.paidOut,
+      );
+      _availableBalance += (bounty.rewardAmount * 0.90); // 90% creator bounty payout
+      notifyListeners();
+    }
   }
 
   /// Cancels a subscription

@@ -8,9 +8,13 @@ import 'package:mobile/features/media/presentation/widgets/reel_download_bottom_
 import 'package:mobile/features/monetization/domain/services/superfans_manager.dart';
 import 'package:mobile/features/monetization/presentation/widgets/superfans_paywall_card.dart';
 import 'package:mobile/features/monetization/presentation/widgets/creator_gift_sheet.dart';
+import 'package:mobile/features/media/presentation/widgets/ai_dubbing_selector_sheet.dart';
+import 'ai_auto_captions_overlay.dart';
 import 'audio_attribution_pill.dart';
 import 'save_to_collection_sheet.dart';
 import 'engagement_bar.dart';
+import '../../domain/models/shoppable_product_model.dart';
+import 'shoppable_product_tag_overlay.dart';
 
 class ReelCard extends StatefulWidget {
   final ReelItemModel reel;
@@ -41,6 +45,55 @@ class ReelCard extends StatefulWidget {
 class _ReelCardState extends State<ReelCard> with SingleTickerProviderStateMixin {
   int _currentImageIndex = 0;
   bool _showHeartBurst = false;
+  bool _showCaptions = true;
+  String _currentDubbingLang = 'en';
+
+  ShoppableProduct? _getShoppableProductForReel(ReelItemModel reel) {
+    if (reel.isSuperfanOnly) {
+      return const ShoppableProduct(
+        id: 'drop_cyber_visor',
+        title: 'Cyberpunk LED Visor Pro (Limited Edition)',
+        price: 49.99,
+        originalPrice: 79.99,
+        imageUrl: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400',
+        merchantName: 'SynthWave Gear',
+        rating: 4.9,
+        reviewCount: 318,
+        isSuperfanExclusiveDrop: true,
+        dropEarlyAccessHours: 24,
+        pinX: 0.18,
+        pinY: 0.58,
+      );
+    } else if (reel.primaryInterestId.contains('tech') ||
+        reel.primaryInterestId.contains('code') ||
+        reel.hashtags.any((h) => h.contains('flutter') || h.contains('code'))) {
+      return const ShoppableProduct(
+        id: 'prod_mech_keyboard',
+        title: 'Custom 65% Mechanical Keyboard RGB',
+        price: 89.00,
+        originalPrice: 120.00,
+        imageUrl: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=400',
+        merchantName: 'KeyCrafters Studio',
+        rating: 4.8,
+        reviewCount: 94,
+        pinX: 0.22,
+        pinY: 0.62,
+      );
+    } else if (reel.title.toLowerCase().contains('design') || reel.title.toLowerCase().contains('art')) {
+      return const ShoppableProduct(
+        id: 'prod_art_pen',
+        title: 'Precision Stylus Pen & Canvas Kit',
+        price: 34.50,
+        imageUrl: 'https://images.unsplash.com/photo-1585336261026-7a87e53f1911?w=400',
+        merchantName: 'Artisan Tools',
+        rating: 4.7,
+        reviewCount: 65,
+        pinX: 0.20,
+        pinY: 0.60,
+      );
+    }
+    return null;
+  }
 
   void _triggerHeartBurst() {
     setState(() => _showHeartBurst = true);
@@ -129,6 +182,7 @@ class _ReelCardState extends State<ReelCard> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     final reel = widget.reel;
     final isSuperfanLocked = reel.isSuperfanOnly && !SuperfansManager().isSuperfanOf(reel.creatorId);
+    final shoppableProduct = _getShoppableProductForReel(reel);
 
     return Stack(
       fit: StackFit.expand,
@@ -240,6 +294,85 @@ class _ReelCardState extends State<ReelCard> with SingleTickerProviderStateMixin
           ),
         ),
 
+        // AI Dubbing & CC Subtitles Quick Controls
+        Positioned(
+          top: 60,
+          right: 16,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final lang = await AiDubbingSelectorSheet.show(context, currentCode: _currentDubbingLang);
+                  if (lang != null && mounted) {
+                    setState(() => _currentDubbingLang = lang.code);
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Switched to ${lang.name} AI Voice Dubbing (${lang.voiceStyle})')),
+                    );
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.translate, color: Colors.white, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        _currentDubbingLang.toUpperCase(),
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => setState(() => _showCaptions = !_showCaptions),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _showCaptions ? Colors.amber.withOpacity(0.2) : Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _showCaptions ? Colors.amber : Colors.white24),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.closed_caption,
+                        color: _showCaptions ? Colors.amber : Colors.white70,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'AI CC',
+                        style: TextStyle(
+                          color: _showCaptions ? Colors.amber : Colors.white70,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Shoppable In-Video Product Tag / Superfan Exclusive Drop Overlay
+        if (shoppableProduct != null && widget.isActive)
+          ShoppableProductTagOverlay(
+            product: shoppableProduct,
+            creatorId: reel.creator.id,
+            creatorUsername: reel.creator.username,
+          ),
+
         // Bottom left: Creator Info, Title, Caption, Hashtags
         Positioned(
           left: 16,
@@ -249,6 +382,16 @@ class _ReelCardState extends State<ReelCard> with SingleTickerProviderStateMixin
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              // AI Auto-Captions Dynamic Word-by-Word Subtitles
+              if (_showCaptions && reel.caption != null && reel.caption!.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: AiAutoCaptionsOverlay(
+                    caption: reel.caption!,
+                    isVisible: _showCaptions && widget.isActive,
+                  ),
+                ),
+              ],
               // Recommendation explanation tag (Clickable for full algorithmic transparency)
               if (reel.explanation != null && reel.explanation!.isNotEmpty) ...[
                 GestureDetector(

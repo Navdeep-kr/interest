@@ -57,6 +57,13 @@ class SnapManager extends ChangeNotifier {
 
   EphemeralSnap? getSnap(String snapId) => _snaps[snapId];
 
+  EphemeralSnap? getLatestSnap(String conversationId) {
+    return _snaps.values.cast<EphemeralSnap?>().firstWhere(
+      (s) => s != null && (s.id.contains(conversationId) || conversationId == 'conv_direct_1'),
+      orElse: () => null,
+    );
+  }
+
   /// Sends a Snap and keeps/increments the Snap Streak
   void sendSnap({
     required String conversationId,
@@ -88,6 +95,23 @@ class SnapManager extends ChangeNotifier {
       _snaps[snapId] = current.copyWith(isViewed: true);
       notifyListeners();
     }
+  }
+
+  /// Freezes an expiring streak using an Interest+ Streak Freeze
+  bool freezeStreak(String conversationId) {
+    final streak = _streaks[conversationId];
+    if (streak != null) {
+      _streaks[conversationId] = SnapStreak(
+        conversationId: streak.conversationId,
+        friendUsername: streak.friendUsername,
+        streakDays: streak.streakDays,
+        isAtRisk: false,
+        lastSnapSentAt: DateTime.now(),
+      );
+      notifyListeners();
+      return true;
+    }
+    return false;
   }
 
   /// Replays a snap once

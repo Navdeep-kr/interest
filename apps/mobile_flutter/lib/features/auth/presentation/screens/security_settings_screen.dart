@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/user_session.dart';
 import '../auth_notifier.dart';
+import '../../../chat/domain/services/privacy_vault_manager.dart';
 
 class SecuritySettingsScreen extends StatefulWidget {
   final AuthNotifier authNotifier;
@@ -272,6 +273,62 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
             trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
             onTap: _showDeactivateDialog,
+          ),
+          const SizedBox(height: 24),
+
+          // Vault 2.0 & Stealth Protection
+          const Text(
+            'Vault 2.0 & Stealth Chat 🔐',
+            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // FLAG_SECURE
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: PrivacyVaultManager().isFlagSecureEnabled,
+                  activeColor: Colors.cyanAccent,
+                  title: const Text('Screenshot & App Switcher Blocker', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Enforces Android FLAG_SECURE to prevent screen capture and hide recents snapshot', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                  onChanged: (val) {
+                    setState(() => PrivacyVaultManager().toggleFlagSecure(val));
+                  },
+                ),
+                const Divider(color: Colors.white12),
+                // Decoy PIN
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: PrivacyVaultManager().isDecoyPinEnabled,
+                  activeColor: Colors.cyanAccent,
+                  title: const Text('Decoy PIN Login (Duress Mode)', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                  subtitle: Text('Entering decoy PIN (${PrivacyVaultManager().decoyPin}) opens a benign dummy feed with no private chats', style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                  onChanged: (val) {
+                    setState(() => PrivacyVaultManager().toggleDecoyPin(val));
+                  },
+                ),
+                const Divider(color: Colors.white12),
+                // Touch to View Snaps
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: PrivacyVaultManager().requireTouchToView,
+                  activeColor: Colors.cyanAccent,
+                  title: const Text('Biometric Touch-to-View Snaps', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Must continuously hold finger on screen; releasing immediately incinerates the media', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                  onChanged: (val) {
+                    setState(() => PrivacyVaultManager().toggleTouchToView(val));
+                  },
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 24),
 

@@ -36,6 +36,11 @@ class _SnapCameraScreenState extends State<SnapCameraScreen> {
   String? _selectedSound;
   String? _selectedFaceSticker; // '👑', '🐶', '🕶️', '✨'
 
+  // AI Prompt-to-Lens State
+  String? _aiLensPrompt;
+  ColorFilter? _aiLensFilter;
+  bool _isAILensActive = false;
+
   final List<String> _sampleBackgrounds = [
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1080',
     'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=1080',
@@ -110,6 +115,164 @@ class _SnapCameraScreenState extends State<SnapCameraScreen> {
     });
   }
 
+  void _applyAILens(String prompt) {
+    ColorFilter filter;
+    final lower = prompt.toLowerCase();
+    if (lower.contains('matrix') || lower.contains('glitch') || lower.contains('code')) {
+      filter = const ColorFilter.matrix([
+        0.1, 0.9, 0.1, 0, 0,
+        0.1, 0.9, 0.1, 0, 0,
+        0.0, 0.2, 0.1, 0, 0,
+        0,   0,   0,   1, 0,
+      ]);
+    } else if (lower.contains('vaporwave') || lower.contains('80s') || lower.contains('retro')) {
+      filter = const ColorFilter.mode(Color(0x55E040FB), BlendMode.colorDodge);
+    } else if (lower.contains('emerald') || lower.contains('forest') || lower.contains('nature')) {
+      filter = const ColorFilter.mode(Color(0x4400E676), BlendMode.softLight);
+    } else if (lower.contains('sunset') || lower.contains('martian') || lower.contains('warm')) {
+      filter = const ColorFilter.mode(Color(0x44FF6D00), BlendMode.colorBurn);
+    } else {
+      // Default Neon Cyberpunk
+      filter = const ColorFilter.mode(Color(0x4400E5FF), BlendMode.colorDodge);
+    }
+
+    setState(() {
+      _aiLensPrompt = prompt;
+      _aiLensFilter = filter;
+      _isAILensActive = true;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✨ AI Lens synthesized: "$prompt"'),
+        backgroundColor: Colors.purpleAccent,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _openAILensPromptDialog() {
+    final promptController = TextEditingController(text: _aiLensPrompt ?? 'Cyberpunk Neon Glow');
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF18181B),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Colors.purpleAccent, Colors.cyanAccent],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.auto_awesome, color: Colors.black, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Prompt-to-Lens AI Generator',
+                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Generative AR shader filter from your imagination',
+                        style: TextStyle(color: Colors.white60, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: promptController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.black45,
+                  hintText: 'e.g., Tokyo Cyberpunk Neon, Retro 80s Vaporwave...',
+                  hintStyle: const TextStyle(color: Colors.white38),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Colors.white24),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Colors.cyanAccent),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text('Suggested Prompts:', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  '🌆 Neon Cyberpunk',
+                  '📼 80s Vaporwave',
+                  '🌲 Emerald Forest',
+                  '🚀 Martian Sunset',
+                  '💻 Matrix Glitch',
+                ].map((preset) {
+                  return ActionChip(
+                    backgroundColor: const Color(0xFF27272A),
+                    label: Text(preset, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                    onPressed: () {
+                      promptController.text = preset;
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.cyanAccent,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  icon: const Icon(Icons.bolt, size: 20),
+                  label: const Text(
+                    'Synthesize Lens',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                  onPressed: () {
+                    final text = promptController.text.trim();
+                    if (text.isNotEmpty) {
+                      _applyAILens(text);
+                    }
+                    Navigator.pop(ctx);
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _sendSnap() {
     final recipient = widget.preselectedRecipient ?? 'elena_rostova';
     final convId = widget.conversationId ?? 'conv_direct_1';
@@ -148,7 +311,7 @@ class _SnapCameraScreenState extends State<SnapCameraScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filter = _activeLens.colorFilter;
+    final filter = _isAILensActive ? _aiLensFilter : _activeLens.colorFilter;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -403,9 +566,36 @@ class _SnapCameraScreenState extends State<SnapCameraScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            _selectedFaceSticker != null ? 'On' : 'Lens',
+                            _selectedFaceSticker != null ? 'On' : 'Sticker',
                             style: TextStyle(
                               color: _selectedFaceSticker != null ? Colors.amber : Colors.white70,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+
+                  // Prompt-to-Lens AI Generator
+                  GestureDetector(
+                    onTap: _openAILensPromptDialog,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.auto_awesome,
+                            color: _isAILensActive ? Colors.cyanAccent : Colors.white,
+                            size: 20,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'AI Lens',
+                            style: TextStyle(
+                              color: _isAILensActive ? Colors.cyanAccent : Colors.white70,
                               fontSize: 9,
                               fontWeight: FontWeight.bold,
                             ),
@@ -459,12 +649,66 @@ class _SnapCameraScreenState extends State<SnapCameraScreen> {
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: SnapLensType.values.length,
+                    itemCount: SnapLensType.values.length + 1,
                     itemBuilder: (ctx, i) {
-                      final lens = SnapLensType.values[i];
-                      final isSelected = _activeLens == lens;
+                      if (i == 0) {
+                        // AI Prompt-to-Lens item
+                        final isSelected = _isAILensActive;
+                        return GestureDetector(
+                          onTap: () {
+                            if (_aiLensFilter == null) {
+                              _openAILensPromptDialog();
+                            } else {
+                              setState(() => _isAILensActive = !_isAILensActive);
+                            }
+                          },
+                          onLongPress: _openAILensPromptDialog,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 5),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              gradient: isSelected
+                                  ? const LinearGradient(
+                                      colors: [Colors.purpleAccent, Colors.cyanAccent],
+                                    )
+                                  : null,
+                              color: isSelected ? null : Colors.black.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isSelected ? Colors.cyanAccent : Colors.purpleAccent.withOpacity(0.5),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.auto_awesome,
+                                  color: isSelected ? Colors.black : Colors.cyanAccent,
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _aiLensPrompt != null ? 'AI: $_aiLensPrompt' : '✨ AI Lens',
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.black : Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      final lens = SnapLensType.values[i - 1];
+                      final isSelected = !_isAILensActive && _activeLens == lens;
                       return GestureDetector(
-                        onTap: () => setState(() => _activeLens = lens),
+                        onTap: () => setState(() {
+                          _isAILensActive = false;
+                          _activeLens = lens;
+                        }),
                         child: Container(
                           margin: const EdgeInsets.symmetric(horizontal: 5),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

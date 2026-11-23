@@ -3,6 +3,8 @@ import 'package:mobile/core/media/optimized_network_image.dart';
 import 'package:mobile/core/theme/app_colors.dart';
 import '../../domain/models/superfan_subscription_model.dart';
 import '../../domain/services/superfans_manager.dart';
+import 'superfans_backstage_screen.dart';
+import '../widgets/creator_bounty_sheet.dart';
 
 /// Creator Studio Dashboard for Superfans & Subscription Monetization.
 class SuperfansDashboardScreen extends StatefulWidget {
@@ -155,6 +157,46 @@ class _SuperfansDashboardScreenState extends State<SuperfansDashboardScreen> {
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Story composer ready in Superfan-Exclusive mode!')),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildActionCard(
+                    icon: Icons.mic,
+                    title: 'Live Backstage',
+                    subtitle: 'Drop-in audio lounge',
+                    color: Colors.deepPurpleAccent,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SuperfansBackstageScreen(
+                            creatorId: 'c_synth_dev',
+                            creatorUsername: 'synth_coder',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildActionCard(
+                    icon: Icons.monetization_on,
+                    title: 'Video Bounties',
+                    subtitle: 'Fulfill \$15-\$100 tasks',
+                    color: Colors.greenAccent,
+                    onTap: () {
+                      CreatorBountySheet.show(
+                        context,
+                        creatorId: 'c_synth_dev',
+                        creatorUsername: 'synth_coder',
                       );
                     },
                   ),

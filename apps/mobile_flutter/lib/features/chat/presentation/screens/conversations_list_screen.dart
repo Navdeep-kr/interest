@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile/core/media/optimized_network_image.dart';
 import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/features/chat/domain/models/chat_models.dart';
+import 'package:mobile/features/chat/domain/models/snap_models.dart';
 import 'package:mobile/features/chat/domain/services/snap_manager.dart';
 import 'package:mobile/features/chat/presentation/widgets/snap_streak_badge.dart';
 import 'package:mobile/features/chat/presentation/widgets/screenshot_alert_banner.dart';
@@ -9,6 +10,11 @@ import 'package:mobile/features/chat/presentation/screens/snap_camera_screen.dar
 import 'package:mobile/features/chat/presentation/chat_notifier.dart';
 import 'package:mobile/features/chat/presentation/chat_state.dart';
 import 'package:mobile/features/chat/presentation/screens/chat_thread_screen.dart';
+import 'package:mobile/features/monetization/domain/services/interest_plus_manager.dart';
+import 'package:mobile/features/monetization/presentation/widgets/interest_plus_upgrade_sheet.dart';
+import '../widgets/view_once_snap_viewer.dart';
+import '../widgets/touch_to_view_snap_viewer.dart';
+import '../../domain/services/privacy_vault_manager.dart';
 
 class ConversationsListScreen extends StatefulWidget {
   final ChatNotifier notifier;
@@ -24,7 +30,54 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
   void initState() {
     super.initState();
     widget.notifier.loadConversations(folder: widget.notifier.activeFolder);
+    PrivacyVaultManager().addListener(_onVaultUpdate);
   }
+
+  @override
+  void dispose() {
+    PrivacyVaultManager().removeListener(_onVaultUpdate);
+    super.dispose();
+  }
+
+  void _onVaultUpdate() {
+    if (mounted) setState(() {});
+  }
+
+  final List<ConversationModel> _decoyConversations = [
+    ConversationModel(
+      id: 'decoy_1',
+      title: 'Mom ❤️',
+      lastMessagePreview: 'Have you eaten lunch yet? Let me know!',
+      lastMessageAt: DateTime.now().subtract(const Duration(minutes: 25)).toIso8601String(),
+      lastSeqNum: 1,
+      status: ConversationStatus.active,
+      unreadCount: 1,
+      isMuted: false,
+      type: ConversationType.direct,
+    ),
+    ConversationModel(
+      id: 'decoy_2',
+      title: 'CS Study Group 📚',
+      lastMessagePreview: 'Marcus: Uploaded the notes for chapter 4.',
+      lastMessageAt: DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
+      lastSeqNum: 1,
+      status: ConversationStatus.active,
+      unreadCount: 0,
+      isMuted: false,
+      type: ConversationType.group,
+    ),
+    ConversationModel(
+      id: 'decoy_3',
+      title: 'Fitness Club 🏋️',
+      lastMessagePreview: 'Morning workout at 7:00 AM tomorrow.',
+      lastMessageAt: DateTime.now().subtract(const Duration(hours: 5)).toIso8601String(),
+      lastSeqNum: 1,
+      status: ConversationStatus.active,
+      unreadCount: 0,
+      isMuted: false,
+      type: ConversationType.group,
+    ),
+  ];
 
   void _onFolderChanged(String folder) {
     widget.notifier.switchFolder(folder);
@@ -44,6 +97,85 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
       // Reload on return
       widget.notifier.loadConversations(folder: widget.notifier.activeFolder);
     });
+  }
+
+  void _showVaultPinDialog() {
+    final pinController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Row(
+          children: [
+            Icon(Icons.shield_outlined, color: Colors.cyanAccent),
+            SizedBox(width: 8),
+            Text('Vault 2.0 Stealth Mode', style: TextStyle(color: Colors.white, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter PIN to toggle security vault.\nEnter 9999 for Decoy Safe Mode.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pinController,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              style: const TextStyle(color: Colors.white, letterSpacing: 4),
+              decoration: const InputDecoration(
+                hintText: '••••',
+                hintStyle: TextStyle(color: Colors.white38),
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.cyanAccent, foregroundColor: Colors.black),
+            onPressed: () {
+              final pin = pinController.text.trim();
+              Navigator.pop(ctx);
+              final unlocked = PrivacyVaultManager().unlockWithPin(pin);
+              if (unlocked) {
+                if (PrivacyVaultManager().isDecoyModeActive) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('🎭 Decoy Mode Unlocked. All sensitive chats cloaked.'),
+                      backgroundColor: Colors.blueGrey,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('🔓 Primary Vault Active.'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('❌ Invalid PIN.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+              }
+            },
+            child: const Text('Authenticate', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showNewConversationDialog() {
@@ -273,6 +405,11 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Text('💎', style: TextStyle(fontSize: 18)),
+            tooltip: 'Interest+ VIP Superpowers',
+            onPressed: () => InterestPlusUpgradeSheet.show(context),
+          ),
+          IconButton(
             icon: const Icon(Icons.camera_alt_outlined, color: Colors.amber),
             tooltip: 'Quick Snap Camera',
             onPressed: () {
@@ -280,6 +417,21 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                 context,
                 MaterialPageRoute(builder: (_) => const SnapCameraScreen()),
               );
+            },
+          ),
+          IconButton(
+            icon: Icon(
+              PrivacyVaultManager().isDecoyModeActive ? Icons.lock_open : Icons.shield_outlined,
+              color: PrivacyVaultManager().isDecoyModeActive ? Colors.cyanAccent : Colors.white70,
+              size: 20,
+            ),
+            tooltip: PrivacyVaultManager().isDecoyModeActive ? 'Exit Decoy Mode' : 'Stealth Vault',
+            onPressed: () {
+              if (PrivacyVaultManager().isDecoyModeActive) {
+                PrivacyVaultManager().exitDecoyMode();
+              } else {
+                _showVaultPinDialog();
+              }
             },
           ),
           IconButton(
@@ -367,25 +519,130 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                     return const SizedBox.shrink();
                   },
                 ),
-                Expanded(
-                  child: RefreshIndicator(
-                    color: AppColors.primary,
-                    backgroundColor: AppColors.surface,
-                    onRefresh: () => widget.notifier.loadConversations(folder: state.activeFolder),
-                    child: ListView.separated(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemCount: state.conversations.length,
-                      separatorBuilder: (ctx, i) => const Divider(
-                        height: 1,
-                        color: AppColors.glassBorder,
-                        indent: 72,
+                AnimatedBuilder(
+                  animation: InterestPlusManager(),
+                  builder: (ctx, _) {
+                    final bff = InterestPlusManager().pinnedBffUsername;
+                    if (bff == null) return const SizedBox.shrink();
+                    return Container(
+                      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.5)),
                       ),
-                      itemBuilder: (ctx, index) {
-                        final conv = state.conversations[index];
-                        return _buildConversationTile(conv, state.activeFolder);
-                      },
+                      child: Row(
+                        children: [
+                          Text(InterestPlusManager().pinnedBffEmoji, style: const TextStyle(fontSize: 20)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Text('#1 BEST FRIEND', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(color: const Color(0xFF0284C7).withOpacity(0.3), borderRadius: BorderRadius.circular(4)),
+                                      child: const Text('Interest+', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text('@$bff', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              backgroundColor: Colors.amber.withOpacity(0.15),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            icon: const Icon(Icons.ac_unit, color: Colors.amber, size: 14),
+                            label: Text(
+                              'Freeze (${InterestPlusManager().streakFreezesRemaining})',
+                              style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: () {
+                              if (InterestPlusManager().useStreakFreeze()) {
+                                SnapManager().freezeStreak('conv_direct_1');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('❄️ Streak frozen! Your streak with @elena_rostova is protected.')),
+                                );
+                              } else {
+                                InterestPlusUpgradeSheet.show(context);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                if (PrivacyVaultManager().isDecoyModeActive)
+                  Container(
+                    margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.blueGrey.shade900, const Color(0xFF1E293B)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.cyanAccent.withOpacity(0.5)),
                     ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.shield_outlined, color: Colors.cyanAccent, size: 20),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('DECOY STEALTH MODE ACTIVE', style: TextStyle(color: Colors.cyanAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                              Text('Private conversations and snaps are cloaked', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => PrivacyVaultManager().exitDecoyMode(),
+                          child: const Text('Exit', style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ),
+                Expanded(
+                  child: Builder(
+                    builder: (ctx) {
+                      final displayConversations = PrivacyVaultManager().isDecoyModeActive
+                          ? _decoyConversations
+                          : state.conversations;
+                      return RefreshIndicator(
+                        color: AppColors.primary,
+                        backgroundColor: AppColors.surface,
+                        onRefresh: () => widget.notifier.loadConversations(folder: state.activeFolder),
+                        child: ListView.separated(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: displayConversations.length,
+                          separatorBuilder: (ctx, i) => const Divider(
+                            height: 1,
+                            color: AppColors.glassBorder,
+                            indent: 72,
+                          ),
+                          itemBuilder: (ctx, index) {
+                            final conv = displayConversations[index];
+                            return _buildConversationTile(conv, state.activeFolder);
+                          },
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -520,33 +777,54 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         onTap: () => _openThread(conv),
-        leading: Stack(
-          children: [
-            CircleAvatar(
-              radius: 26,
-              backgroundColor: AppColors.surfaceElevated,
-              backgroundImage: appAvatarProvider(conv.avatarUrl),
-              child: conv.avatarUrl == null
-                  ? Icon(
-                      conv.type == ConversationType.group ? Icons.group : Icons.person,
-                      color: AppColors.textSecondary,
-                    )
-                  : null,
-            ),
-            if (conv.disappearingTtlSeconds != null && conv.disappearingTtlSeconds! > 0)
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(
-                    color: AppColors.surface,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.timer_outlined, size: 14, color: AppColors.accentCyan),
-                ),
+        leading: GestureDetector(
+          onTap: () {
+            final snap = SnapManager().getLatestSnap(conv.id) ??
+                EphemeralSnap(
+                  id: 'snap_${conv.id}',
+                  senderUsername: conv.title,
+                  mediaUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1080',
+                  caption: 'Quick check-in snap ✨',
+                  sentAt: DateTime.now(),
+                );
+            if (PrivacyVaultManager().requireTouchToView) {
+              TouchToViewSnapViewer.show(context, snap, onFinished: () {
+                setState(() {});
+              });
+            } else {
+              ViewOnceSnapViewer.show(context, snap, onFinished: () {
+                setState(() {});
+              });
+            }
+          },
+          child: Stack(
+            children: [
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: AppColors.surfaceElevated,
+                backgroundImage: appAvatarProvider(conv.avatarUrl),
+                child: conv.avatarUrl == null
+                    ? Icon(
+                        conv.type == ConversationType.group ? Icons.group : Icons.person,
+                        color: AppColors.textSecondary,
+                      )
+                    : null,
               ),
-          ],
+              if (conv.disappearingTtlSeconds != null && conv.disappearingTtlSeconds! > 0)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: AppColors.surface,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.timer_outlined, size: 14, color: AppColors.accentCyan),
+                  ),
+                ),
+            ],
+          ),
         ),
         title: Row(
           children: [
