@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/config/simple_mode_manager.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/localization/language_picker_sheet.dart';
 import '../../../../core/widgets/bounce_button.dart';
@@ -132,6 +133,33 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          AnimatedBuilder(
+            animation: SimpleModeManager(),
+            builder: (ctx, _) {
+              final simple = SimpleModeManager();
+              return TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: simple.isSimpleMode ? Colors.tealAccent : Colors.purpleAccent,
+                  backgroundColor: simple.isSimpleMode
+                      ? Colors.tealAccent.withOpacity(0.12)
+                      : Colors.purpleAccent.withOpacity(0.12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                ),
+                icon: Icon(
+                  simple.isSimpleMode ? Icons.bolt : Icons.auto_awesome,
+                  size: 15,
+                  color: simple.isSimpleMode ? Colors.tealAccent : Colors.purpleAccent,
+                ),
+                label: Text(
+                  simple.isSimpleMode ? 'LITE' : 'PRO',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                ),
+                onPressed: () => simple.toggleSimpleMode(),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
           AnimatedBuilder(
             animation: LocaleManager(),
             builder: (ctx, _) => TextButton.icon(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_colors.dart';
 import 'core/storage/secure_storage_service.dart';
+import 'core/config/simple_mode_manager.dart';
 import 'core/localization/language_picker_sheet.dart';
 import 'core/performance/data_saver_manager.dart';
 import 'core/widgets/offline_banner_pill.dart';
@@ -417,10 +418,24 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             ),
           ),
         ),
-        // Snaptube-grade Draggable Floating Picture-in-Picture & Audio Player Overlay
-        FloatingPiPPlayerOverlay(controller: FloatingPiPController()),
-        // Offline & Data Saver Floating Status Indicator
-        const OfflineBannerPill(),
+        // Snaptube-grade Draggable Floating Picture-in-Picture & Audio Player Overlay (Pro Mode)
+        AnimatedBuilder(
+          animation: SimpleModeManager(),
+          builder: (ctx, _) {
+            final simple = SimpleModeManager();
+            if (!simple.showFloatingPiP) return const SizedBox.shrink();
+            return FloatingPiPPlayerOverlay(controller: FloatingPiPController());
+          },
+        ),
+        // Offline & Data Saver Floating Status Indicator (Pro / Explicit Mode)
+        AnimatedBuilder(
+          animation: SimpleModeManager(),
+          builder: (ctx, _) {
+            final simple = SimpleModeManager();
+            if (!simple.showAdvancedOverlays) return const SizedBox.shrink();
+            return const OfflineBannerPill();
+          },
+        ),
       ],
     );
   }
@@ -508,223 +523,334 @@ class ProfileHubScreen extends StatelessWidget {
   void _showSettingsMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
+        final simpleManager = SimpleModeManager();
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: AppColors.glassBorder,
-                    borderRadius: BorderRadius.circular(2),
+          child: AnimatedBuilder(
+            animation: simpleManager,
+            builder: (ctx, _) {
+              return SizedBox(
+                height: MediaQuery.of(context).size.height * 0.75,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.glassBorder,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+
+                      // Dual Experience Mode Hero Card (Simple Lite vs Standard Pro)
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: simpleManager.isSimpleMode
+                              ? Colors.tealAccent.withOpacity(0.12)
+                              : Colors.purpleAccent.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: simpleManager.isSimpleMode
+                                ? Colors.tealAccent.withOpacity(0.6)
+                                : Colors.purpleAccent.withOpacity(0.6),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: simpleManager.isSimpleMode ? Colors.tealAccent : Colors.purpleAccent,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                simpleManager.isSimpleMode ? Icons.bolt : Icons.auto_awesome,
+                                color: Colors.black,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        simpleManager.currentModeName,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white12,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          simpleManager.isSimpleMode ? 'LITE' : 'PRO',
+                                          style: TextStyle(
+                                            color: simpleManager.isSimpleMode ? Colors.tealAccent : Colors.purpleAccent,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    simpleManager.currentModeDescription,
+                                    style: const TextStyle(color: Colors.white60, fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: simpleManager.isSimpleMode,
+                              activeColor: Colors.tealAccent,
+                              onChanged: (val) => simpleManager.setSimpleMode(val),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      ListTile(
+                        leading: const Icon(Icons.language, color: Colors.cyanAccent),
+                        title: const Text('Language & Regional Formats', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        subtitle: const Text('12+ languages, RTL layout mirroring & currency conversion', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          LanguagePickerSheet.show(context);
+                        },
+                      ),
+                      AnimatedBuilder(
+                        animation: DataSaverManager(),
+                        builder: (ctx, _) {
+                          final dataSaver = DataSaverManager();
+                          return SwitchListTile(
+                            secondary: const Icon(Icons.data_saver_on, color: Colors.tealAccent),
+                            title: const Text('Data Saver (Low Bandwidth)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            subtitle: const Text('Downscales image/video quality to save up to 75% mobile data', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                            value: dataSaver.isDataSaverEnabled,
+                            activeColor: Colors.cyanAccent,
+                            onChanged: (val) => dataSaver.toggleDataSaver(val),
+                          );
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.camera_alt_outlined, color: Colors.amber),
+                        title: const Text('Quick Snap Camera & Lenses', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        subtitle: const Text('Snapchat-style view-once snaps, streaks & creative AR lenses', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const SnapCameraScreen()),
+                          );
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.bookmark_outline, color: AppColors.brandPrimary),
+                        title: const Text('Saved Collections & Boards', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        subtitle: const Text('Instagram-style organized collections and saved posts', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const SavedCollectionsScreen()),
+                          );
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.lock_person_outlined, color: AppColors.primary),
+                        title: const Text('Privacy & Data Governance', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text('Export user data & manage account deletion', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const PrivacyAndDataSettingsScreen(token: 'ey_web_mock_access_token_12345'),
+                            ),
+                          );
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.shield_outlined, color: AppColors.success),
+                        title: const Text('Safety & Moderation Center', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text('Content guidelines, reporting, and blocking', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SafetyCenterScreen(token: 'ey_web_mock_access_token_12345'),
+                            ),
+                          );
+                        },
+                      ),
+
+                      // PRO / ADVANCED TOOLS (Organized & hidden when in Simple Lite Mode)
+                      if (simpleManager.isProMode) ...[
+                        const Padding(
+                          padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 6),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'PRO CREATOR & ADVANCED TOOLS',
+                              style: TextStyle(
+                                color: Colors.purpleAccent,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.workspace_premium, color: Color(0xFFC084FC)),
+                          title: const Text('Superfans Creator Studio', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          subtitle: const Text('Manage subscribers, set monthly tiers & view recurring revenue', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const SuperfansDashboardScreen()),
+                            );
+                          },
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.download_done, color: AppColors.accentPink),
+                          title: const Text('Offline Media & Secret Vault', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          subtitle: const Text('Snaptube-grade downloads, background MP3s & PIN vault', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const OfflineVaultScreen()),
+                            );
+                          },
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.sensors, color: AppColors.accentRed),
+                          title: const Text('Live Broadcasts & Events', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          subtitle: const Text('Host live sessions, manage Q&A & scheduled events', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            if (liveNotifier != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => LiveEventsHubScreen(notifier: liveNotifier!),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.auto_awesome, color: AppColors.primary),
+                          title: const Text('AI Interest Assistant', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          subtitle: const Text('Grounded discovery, related topics & public summaries', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            if (aiAssistantNotifier != null) {
+                              AiAssistantSheet.show(context, aiAssistantNotifier!);
+                            }
+                          },
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.school_outlined, color: AppColors.accentGold),
+                          title: const Text('Learn Mode & Skill Paths', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          subtitle: const Text('Accredited credentials, study tracks & creator playlists', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            if (learnNotifier != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => LearnHubScreen(notifier: learnNotifier!),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.settings_system_daydream_outlined, color: AppColors.accentCyan),
+                          title: const Text('Foundation & System Status', style: TextStyle(color: Colors.white)),
+                          subtitle: const Text('Inspect zero-location policy & environment config', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FoundationHomeScreen(authNotifier: authNotifier),
+                              ),
+                            );
+                          },
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.analytics_outlined, color: AppColors.accentPink),
+                          title: const Text('Creator Studio & Analytics', style: TextStyle(color: Colors.white)),
+                          subtitle: const Text('Track verified views, watch time, and earnings', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const CreatorStudioScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.storefront_outlined, color: AppColors.primary),
+                          title: const Text('Creator Marketplace & Briefs', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          subtitle: const Text('Browse verified brand campaigns, pitch rates & deliverables', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            if (marketplaceNotifier != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => CreatorMarketplaceHubScreen(notifier: marketplaceNotifier!),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ],
+
+                      const Divider(color: AppColors.glassBorder),
+                      ListTile(
+                        leading: const Icon(Icons.logout, color: AppColors.error),
+                        title: const Text('Sign Out', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          authNotifier.logout();
+                        },
+                      ),
+                    ],
                   ),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.language, color: Colors.cyanAccent),
-                  title: const Text('Language & Regional Formats', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('12+ languages, RTL layout mirroring & currency conversion', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    LanguagePickerSheet.show(context);
-                  },
-                ),
-                AnimatedBuilder(
-                  animation: DataSaverManager(),
-                  builder: (ctx, _) {
-                    final dataSaver = DataSaverManager();
-                    return SwitchListTile(
-                      secondary: const Icon(Icons.data_saver_on, color: Colors.tealAccent),
-                      title: const Text('Data Saver (Low Bandwidth)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      subtitle: const Text('Downscales image/video quality to save up to 75% mobile data', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                      value: dataSaver.isDataSaverEnabled,
-                      activeColor: Colors.cyanAccent,
-                      onChanged: (val) => dataSaver.toggleDataSaver(val),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.workspace_premium, color: Color(0xFFC084FC)),
-                  title: const Text('Superfans Creator Studio', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Manage subscribers, set monthly tiers & view recurring revenue', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SuperfansDashboardScreen()),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.camera_alt_outlined, color: Colors.amber),
-                  title: const Text('Quick Snap Camera & Lenses', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Snapchat-style view-once snaps, streaks & creative AR lenses', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SnapCameraScreen()),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.download_done, color: AppColors.accentPink),
-                  title: const Text('Offline Media & Secret Vault', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Snaptube-grade downloads, background MP3s & PIN vault', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const OfflineVaultScreen()),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.bookmark_outline, color: AppColors.brandPrimary),
-                  title: const Text('Saved Collections & Boards', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Instagram-style organized collections and saved posts', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SavedCollectionsScreen()),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.sensors, color: AppColors.accentRed),
-                  title: const Text('Live Broadcasts & Events', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Host live sessions, manage Q&A & scheduled events', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    if (liveNotifier != null) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => LiveEventsHubScreen(notifier: liveNotifier!),
-                        ),
-                      );
-                    }
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.auto_awesome, color: AppColors.primary),
-                  title: const Text('AI Interest Assistant', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Grounded discovery, related topics & public summaries', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    if (aiAssistantNotifier != null) {
-                      AiAssistantSheet.show(context, aiAssistantNotifier!);
-                    }
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.school_outlined, color: AppColors.accentGold),
-                  title: const Text('Learn Mode & Skill Paths', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Accredited credentials, study tracks & creator playlists', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    if (learnNotifier != null) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => LearnHubScreen(notifier: learnNotifier!),
-                        ),
-                      );
-                    }
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.settings_system_daydream_outlined, color: AppColors.accentCyan),
-                  title: const Text('Foundation & System Status', style: TextStyle(color: Colors.white)),
-                  subtitle: const Text('Inspect zero-location policy & environment config', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => FoundationHomeScreen(authNotifier: authNotifier),
-                      ),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.analytics_outlined, color: AppColors.accentPink),
-                  title: const Text('Creator Studio & Analytics', style: TextStyle(color: Colors.white)),
-                  subtitle: const Text('Track verified views, watch time, and earnings', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const CreatorStudioScreen(),
-                      ),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.storefront_outlined, color: AppColors.primary),
-                  title: const Text('Creator Marketplace & Briefs', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Browse verified brand campaigns, pitch rates & deliverables', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    if (marketplaceNotifier != null) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => CreatorMarketplaceHubScreen(notifier: marketplaceNotifier!),
-                        ),
-                      );
-                    }
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.lock_person_outlined, color: AppColors.primary),
-                  title: const Text('Privacy & Data Governance', style: TextStyle(color: Colors.white)),
-                  subtitle: const Text('Export user data & manage account deletion', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const PrivacyAndDataSettingsScreen(token: 'ey_web_mock_access_token_12345'),
-                      ),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.shield_outlined, color: AppColors.success),
-                  title: const Text('Safety & Moderation Center', style: TextStyle(color: Colors.white)),
-                  subtitle: const Text('Content guidelines, reporting, and blocking', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const SafetyCenterScreen(token: 'ey_web_mock_access_token_12345'),
-                      ),
-                    );
-                  },
-                ),
-                const Divider(color: AppColors.glassBorder),
-                ListTile(
-                  leading: const Icon(Icons.logout, color: AppColors.error),
-                  title: const Text('Sign Out', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    authNotifier.logout();
-                  },
-                ),
-              ],
-            ),
+              );
+            },
           ),
         );
       },
@@ -734,64 +860,123 @@ class ProfileHubScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final username = authNotifier.currentUser?.username ?? 'interest_creator';
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        elevation: 0,
-        title: Text(
-          '@$username',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.white),
-        ),
-        actions: [
-          if (liveNotifier != null)
-            IconButton(
-              icon: const Icon(Icons.sensors, color: AppColors.accentRed),
-              tooltip: 'Live & Events',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => LiveEventsHubScreen(notifier: liveNotifier!),
-                  ),
-                );
-              },
+    final simpleManager = SimpleModeManager();
+
+    return AnimatedBuilder(
+      animation: simpleManager,
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: AppColors.surface,
+            elevation: 0,
+            title: Text(
+              '@$username',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.white),
             ),
-          if (learnNotifier != null)
-            IconButton(
-              icon: const Icon(Icons.school, color: AppColors.accentGold),
-              tooltip: 'Learn Mode',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => LearnHubScreen(notifier: learnNotifier!),
+            actions: [
+              // 1-Tap Experience Mode Toggle Pill
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 6.0),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () {
+                      simpleManager.toggleSimpleMode();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Switched to ${simpleManager.currentModeName} (${simpleManager.isSimpleMode ? "Minimalist" : "Pro"})'),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: simpleManager.isSimpleMode
+                            ? Colors.tealAccent.withOpacity(0.15)
+                            : Colors.purpleAccent.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: simpleManager.isSimpleMode ? Colors.tealAccent : Colors.purpleAccent,
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            simpleManager.isSimpleMode ? Icons.bolt : Icons.auto_awesome,
+                            color: simpleManager.isSimpleMode ? Colors.tealAccent : Colors.purpleAccent,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            simpleManager.isSimpleMode ? 'Lite' : 'Pro',
+                            style: TextStyle(
+                              color: simpleManager.isSimpleMode ? Colors.tealAccent : Colors.purpleAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                );
-              },
-            ),
-          IconButton(
-            icon: const Icon(Icons.download_done, color: AppColors.accentPink),
-            tooltip: 'Offline Media & Vault',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const OfflineVaultScreen()),
-              );
-            },
+                ),
+              ),
+              if (simpleManager.isProMode) ...[
+                if (liveNotifier != null)
+                  IconButton(
+                    icon: const Icon(Icons.sensors, color: AppColors.accentRed),
+                    tooltip: 'Live & Events',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => LiveEventsHubScreen(notifier: liveNotifier!),
+                        ),
+                      );
+                    },
+                  ),
+                if (learnNotifier != null)
+                  IconButton(
+                    icon: const Icon(Icons.school, color: AppColors.accentGold),
+                    tooltip: 'Learn Mode',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => LearnHubScreen(notifier: learnNotifier!),
+                        ),
+                      );
+                    },
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.download_done, color: AppColors.accentPink),
+                  tooltip: 'Offline Media & Vault',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const OfflineVaultScreen()),
+                    );
+                  },
+                ),
+              ],
+              IconButton(
+                icon: const Icon(Icons.menu, color: Colors.white),
+                tooltip: 'Settings & Tools',
+                onPressed: () => _showSettingsMenu(context),
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
-            tooltip: 'Settings & Tools',
-            onPressed: () => _showSettingsMenu(context),
+          body: ProfileScreen(
+            notifier: profileNotifier,
+            identifier: username,
+            isMe: true,
           ),
-        ],
-      ),
-      body: ProfileScreen(
-        notifier: profileNotifier,
-        identifier: username,
-        isMe: true,
-      ),
+        );
+      },
     );
   }
 }

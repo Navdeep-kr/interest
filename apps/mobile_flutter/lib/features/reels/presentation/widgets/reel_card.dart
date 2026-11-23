@@ -17,6 +17,7 @@ import '../../domain/models/shoppable_product_model.dart';
 import 'shoppable_product_tag_overlay.dart';
 import '../../../../core/utils/haptic_service.dart';
 import '../../../../core/widgets/pinch_to_zoom_overlay.dart';
+import '../../../../core/config/simple_mode_manager.dart';
 
 class ReelCard extends StatefulWidget {
   final ReelItemModel reel;
@@ -299,79 +300,80 @@ class _ReelCardState extends State<ReelCard> with SingleTickerProviderStateMixin
           ),
         ),
 
-        // AI Dubbing & CC Subtitles Quick Controls
-        Positioned(
-          top: 60,
-          right: 16,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureDetector(
-                onTap: () async {
-                  final messenger = ScaffoldMessenger.of(context);
-                  final lang = await AiDubbingSelectorSheet.show(context, currentCode: _currentDubbingLang);
-                  if (lang != null && mounted) {
-                    setState(() => _currentDubbingLang = lang.code);
-                    messenger.showSnackBar(
-                      SnackBar(content: Text('Switched to ${lang.name} AI Voice Dubbing (${lang.voiceStyle})')),
-                    );
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.translate, color: Colors.white, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        _currentDubbingLang.toUpperCase(),
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () => setState(() => _showCaptions = !_showCaptions),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _showCaptions ? Colors.amber.withOpacity(0.2) : Colors.black.withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _showCaptions ? Colors.amber : Colors.white24),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.closed_caption,
-                        color: _showCaptions ? Colors.amber : Colors.white70,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'AI CC',
-                        style: TextStyle(
-                          color: _showCaptions ? Colors.amber : Colors.white70,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+        // AI Dubbing & CC Subtitles Quick Controls (Pro Mode Only)
+        if (SimpleModeManager().isProMode)
+          Positioned(
+            top: 60,
+            right: 16,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final lang = await AiDubbingSelectorSheet.show(context, currentCode: _currentDubbingLang);
+                    if (lang != null && mounted) {
+                      setState(() => _currentDubbingLang = lang.code);
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Switched to ${lang.name} AI Voice Dubbing (${lang.voiceStyle})')),
+                      );
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.translate, color: Colors.white, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          _currentDubbingLang.toUpperCase(),
+                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => setState(() => _showCaptions = !_showCaptions),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _showCaptions ? Colors.amber.withOpacity(0.2) : Colors.black.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _showCaptions ? Colors.amber : Colors.white24),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.closed_caption,
+                          color: _showCaptions ? Colors.amber : Colors.white70,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'AI CC',
+                          style: TextStyle(
+                            color: _showCaptions ? Colors.amber : Colors.white70,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
 
-        // Shoppable In-Video Product Tag / Superfan Exclusive Drop Overlay
-        if (shoppableProduct != null && widget.isActive)
+        // Shoppable In-Video Product Tag / Superfan Exclusive Drop Overlay (Pro Mode Only)
+        if (SimpleModeManager().showShoppablePopups && shoppableProduct != null && widget.isActive)
           ShoppableProductTagOverlay(
             product: shoppableProduct,
             creatorId: reel.creator.id,
@@ -397,8 +399,8 @@ class _ReelCardState extends State<ReelCard> with SingleTickerProviderStateMixin
                   ),
                 ),
               ],
-              // Recommendation explanation tag (Clickable for full algorithmic transparency)
-              if (reel.explanation != null && reel.explanation!.isNotEmpty) ...[
+              // Recommendation explanation tag (Clickable for full algorithmic transparency - Pro Mode)
+              if (SimpleModeManager().isProMode && reel.explanation != null && reel.explanation!.isNotEmpty) ...[
                 GestureDetector(
                   onTap: () => _showRecommendationDetails(context, reel),
                   child: Container(
