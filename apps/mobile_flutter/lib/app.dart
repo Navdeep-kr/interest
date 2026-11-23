@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'core/config/env_config.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
+import 'core/localization/app_localizations.dart';
 
 import 'core/storage/secure_storage_service.dart';
 import 'features/auth/data/auth_api_client.dart';
@@ -40,20 +41,33 @@ class _InterestAppState extends State<InterestApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: EnvConfig.appName,
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      home: AnimatedBuilder(
-        animation: _authNotifier,
-        builder: (context, _) {
-          final state = _authNotifier.state;
-          if (state is AuthenticatedState) {
-            return MainNavigationShell(authNotifier: _authNotifier);
-          }
-          return LoginScreen(authNotifier: _authNotifier);
-        },
-      ),
+    return AnimatedBuilder(
+      animation: LocaleManager(),
+      builder: (context, _) {
+        final localeManager = LocaleManager();
+        return MaterialApp(
+          title: EnvConfig.appName,
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.darkTheme,
+          locale: localeManager.currentLocale,
+          builder: (context, child) {
+            return Directionality(
+              textDirection: localeManager.textDirection,
+              child: child!,
+            );
+          },
+          home: AnimatedBuilder(
+            animation: _authNotifier,
+            builder: (context, _) {
+              final state = _authNotifier.state;
+              if (state is AuthenticatedState) {
+                return MainNavigationShell(authNotifier: _authNotifier);
+              }
+              return LoginScreen(authNotifier: _authNotifier);
+            },
+          ),
+        );
+      },
     );
   }
 }

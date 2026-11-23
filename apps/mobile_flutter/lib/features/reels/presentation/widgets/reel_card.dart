@@ -15,6 +15,8 @@ import 'save_to_collection_sheet.dart';
 import 'engagement_bar.dart';
 import '../../domain/models/shoppable_product_model.dart';
 import 'shoppable_product_tag_overlay.dart';
+import '../../../../core/utils/haptic_service.dart';
+import '../../../../core/widgets/pinch_to_zoom_overlay.dart';
 
 class ReelCard extends StatefulWidget {
   final ReelItemModel reel;
@@ -96,6 +98,7 @@ class _ReelCardState extends State<ReelCard> with SingleTickerProviderStateMixin
   }
 
   void _triggerHeartBurst() {
+    HapticService.medium();
     setState(() => _showHeartBurst = true);
     widget.onLike();
     Future.delayed(const Duration(milliseconds: 900), () {
@@ -187,26 +190,28 @@ class _ReelCardState extends State<ReelCard> with SingleTickerProviderStateMixin
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Media background with double-tap heart burst
+        // Media background with double-tap heart burst & interactive pinch-to-zoom
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onDoubleTap: _triggerHeartBurst,
-          child: isSuperfanLocked
-              ? Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    OptimizedNetworkImage(imageUrl: reel.thumbnailUrl, fit: BoxFit.cover),
-                    SuperfansPaywallCard(
-                      creatorId: reel.creatorId,
-                      creatorUsername: reel.creator.username,
-                      creatorAvatarUrl: reel.creator.avatarUrl,
-                      onUnlocked: () => setState(() {}),
-                    ),
-                  ],
-                )
-              : reel.mediaType == ReelMediaType.image && reel.imageUrls.isNotEmpty
-                  ? _buildImageCarousel(reel.imageUrls)
-                  : _buildVideoPlayer(reel),
+          child: PinchToZoomOverlay(
+            child: isSuperfanLocked
+                ? Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      OptimizedNetworkImage(imageUrl: reel.thumbnailUrl, fit: BoxFit.cover),
+                      SuperfansPaywallCard(
+                        creatorId: reel.creatorId,
+                        creatorUsername: reel.creator.username,
+                        creatorAvatarUrl: reel.creator.avatarUrl,
+                        onUnlocked: () => setState(() {}),
+                      ),
+                    ],
+                  )
+                : reel.mediaType == ReelMediaType.image && reel.imageUrls.isNotEmpty
+                    ? _buildImageCarousel(reel.imageUrls)
+                    : _buildVideoPlayer(reel),
+          ),
         ),
 
         // Gradient overlay for readability

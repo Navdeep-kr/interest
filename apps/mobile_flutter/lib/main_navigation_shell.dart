@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_colors.dart';
 import 'core/storage/secure_storage_service.dart';
+import 'core/localization/language_picker_sheet.dart';
+import 'core/performance/data_saver_manager.dart';
+import 'core/widgets/offline_banner_pill.dart';
+import 'core/utils/haptic_service.dart';
 import 'features/media/presentation/controllers/floating_pip_controller.dart';
 import 'features/media/presentation/widgets/floating_pip_player_overlay.dart';
 import 'features/media/presentation/screens/offline_vault_screen.dart';
@@ -370,6 +374,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               selectedFontSize: 11,
               unselectedFontSize: 11,
               onTap: (index) {
+                HapticService.light();
                 if (index == 2) {
                   _showCreateActionSheet();
                 } else {
@@ -414,6 +419,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         ),
         // Snaptube-grade Draggable Floating Picture-in-Picture & Audio Player Overlay
         FloatingPiPPlayerOverlay(controller: FloatingPiPController()),
+        // Offline & Data Saver Floating Status Indicator
+        const OfflineBannerPill(),
       ],
     );
   }
@@ -520,6 +527,29 @@ class ProfileHubScreen extends StatelessWidget {
                     color: AppColors.glassBorder,
                     borderRadius: BorderRadius.circular(2),
                   ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.language, color: Colors.cyanAccent),
+                  title: const Text('Language & Regional Formats', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('12+ languages, RTL layout mirroring & currency conversion', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    LanguagePickerSheet.show(context);
+                  },
+                ),
+                AnimatedBuilder(
+                  animation: DataSaverManager(),
+                  builder: (ctx, _) {
+                    final dataSaver = DataSaverManager();
+                    return SwitchListTile(
+                      secondary: const Icon(Icons.data_saver_on, color: Colors.tealAccent),
+                      title: const Text('Data Saver (Low Bandwidth)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      subtitle: const Text('Downscales image/video quality to save up to 75% mobile data', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                      value: dataSaver.isDataSaverEnabled,
+                      activeColor: Colors.cyanAccent,
+                      onChanged: (val) => dataSaver.toggleDataSaver(val),
+                    );
+                  },
                 ),
                 ListTile(
                   leading: const Icon(Icons.workspace_premium, color: Color(0xFFC084FC)),

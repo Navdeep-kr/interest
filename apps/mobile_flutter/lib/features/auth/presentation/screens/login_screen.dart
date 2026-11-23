@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/localization/language_picker_sheet.dart';
+import '../../../../core/widgets/bounce_button.dart';
 import '../auth_notifier.dart';
 import '../auth_state.dart';
 import 'register_screen.dart';
@@ -125,6 +128,30 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          AnimatedBuilder(
+            animation: LocaleManager(),
+            builder: (ctx, _) => TextButton.icon(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white70,
+                backgroundColor: Colors.white.withOpacity(0.08),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              ),
+              icon: const Icon(Icons.language, size: 16, color: Colors.cyanAccent),
+              label: Text(
+                LocaleManager().currentLanguageCode.toUpperCase(),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+              onPressed: () => LanguagePickerSheet.show(context),
+            ),
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -163,7 +190,46 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 20),
+
+                  // Instant 1-Tap Guest Exploration
+                  BounceButton(
+                    onTap: isLoading ? null : () => widget.authNotifier.loginAsGuest(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.cyanAccent.withOpacity(0.2),
+                            Colors.purpleAccent.withOpacity(0.2),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.cyanAccent.withOpacity(0.6)),
+                      ),
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('🚀', style: TextStyle(fontSize: 18)),
+                            SizedBox(width: 8),
+                            Text(
+                              'Explore as Guest (No Sign-Up)',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            SizedBox(width: 6),
+                            Icon(Icons.arrow_forward, color: Colors.cyanAccent, size: 16),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
 
                   // Error / Rate Limit Banner
                   if (state is AuthErrorState) ...[
@@ -305,6 +371,83 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: isLoading
                         ? null
                         : () => widget.authNotifier.login('alex_architect', 'Password123!'),
+                  ),
+                  const SizedBox(height: 18),
+
+                  const Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.white12)),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          'OR 1-TAP SOCIAL',
+                          style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: Colors.white12)),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.white24),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: isLoading ? null : () => widget.authNotifier.loginWithSocialProvider('Google'),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('G', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w900, fontSize: 16)),
+                              SizedBox(width: 6),
+                              Text('Google', style: TextStyle(color: Colors.white, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.white24),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: isLoading ? null : () => widget.authNotifier.loginWithSocialProvider('Apple'),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                              SizedBox(width: 6),
+                              Text('Apple', style: TextStyle(color: Colors.white, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.white24),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: isLoading ? null : () => widget.authNotifier.loginWithSocialProvider('Phone'),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.phone_iphone, color: Colors.greenAccent, size: 16),
+                              SizedBox(width: 4),
+                              Text('OTP', style: TextStyle(color: Colors.white, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
 

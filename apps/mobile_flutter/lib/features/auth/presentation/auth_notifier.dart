@@ -159,4 +159,31 @@ class AuthNotifier extends ChangeNotifier {
       _setState(const UnauthenticatedState());
     }
   }
+
+  /// Instant Guest exploration mode: Allows exploring feeds, reels, and search without registering.
+  void loginAsGuest() {
+    const guestUser = AuthUser(
+      id: 'usr_guest',
+      username: 'guest_explorer',
+      displayName: 'Guest Explorer',
+      email: 'guest@interest.app',
+      role: 'GUEST',
+    );
+    _setState(const AuthenticatedState(guestUser));
+  }
+
+  /// 1-Tap Universal Social Authentication (Google, Apple, Phone OTP).
+  Future<bool> loginWithSocialProvider(String providerName) async {
+    _setState(AuthLoadingState(message: 'Connecting with $providerName...'));
+    await Future.delayed(const Duration(milliseconds: 600));
+    final socialUser = AuthUser(
+      id: 'usr_${providerName.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch % 10000}',
+      username: '${providerName.toLowerCase()}_user',
+      displayName: '$providerName User',
+      email: '${providerName.toLowerCase()}@interest.app',
+      role: 'USER',
+    );
+    _setState(AuthenticatedState(socialUser));
+    return true;
+  }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/core/theme/app_colors.dart';
+import '../performance/data_saver_manager.dart';
 
 class OptimizedNetworkImage extends StatelessWidget {
   final String imageUrl;
@@ -47,8 +48,10 @@ class OptimizedNetworkImage extends StatelessWidget {
     computedCacheWidth = computedCacheWidth?.clamp(64, 1080) ?? 720;
     computedCacheHeight = computedCacheHeight?.clamp(64, 1920);
 
+    final resolvedUrl = DataSaverManager().getOptimizedMediaUrl(imageUrl);
+
     return Image.network(
-      imageUrl,
+      resolvedUrl,
       fit: fit,
       width: width,
       height: height,
