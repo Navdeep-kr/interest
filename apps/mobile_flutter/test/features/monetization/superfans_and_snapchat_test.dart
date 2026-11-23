@@ -51,6 +51,34 @@ void main() {
       expect(SuperfanTier.vip.perks.any((p) => p.contains('VIP')), isTrue);
       expect(SuperfanTier.founder.perks.any((p) => p.contains('Founder')), isTrue);
     });
+
+    test('Creator micro-gifting increments creator balance', () {
+      final initialBalance = manager.availableBalance;
+      final gift = CreatorGift.availableGifts.firstWhere((g) => g.id == 'star');
+      manager.sendGift(
+        creatorId: 'c_creator_1',
+        creatorName: 'star_creator',
+        gift: gift,
+      );
+
+      expect(manager.sentGifts.isNotEmpty, isTrue);
+      expect(manager.availableBalance, greaterThan(initialBalance));
+    });
+
+    test('Creator payout request updates balance and records history', () async {
+      final initialBalance = manager.availableBalance;
+      const withdrawAmount = 100.0;
+      final success = await manager.requestPayout(
+        amount: withdrawAmount,
+        method: 'Stripe Connect',
+        destinationAccount: 'acct_test123',
+      );
+
+      expect(success, isTrue);
+      expect(manager.availableBalance, equals(initialBalance - withdrawAmount));
+      expect(manager.payoutHistory.first.status, equals('processing'));
+      expect(manager.payoutHistory.first.amount, equals(withdrawAmount));
+    });
   });
 
   group('Snapchat Suite (Streaks, View Once, Screenshot Alerts) Tests', () {

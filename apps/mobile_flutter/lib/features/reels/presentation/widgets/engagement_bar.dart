@@ -9,6 +9,7 @@ class EngagementBar extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onShare;
   final VoidCallback? onMore;
+  final VoidCallback? onGift;
   final VoidCallback? onDownload;
   final VoidCallback? onPiP;
   final VoidCallback? onSaveLongPress;
@@ -21,6 +22,7 @@ class EngagementBar extends StatelessWidget {
     required this.onSave,
     required this.onShare,
     this.onMore,
+    this.onGift,
     this.onDownload,
     this.onPiP,
     this.onSaveLongPress,
@@ -213,6 +215,28 @@ class EngagementBar extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
+
+        // Tip / Gift button
+        if (onGift != null) ...[
+          IconButton(
+            key: const Key('engagement_gift_button'),
+            icon: const Icon(Icons.card_giftcard, color: AppColors.accentGold, size: 28),
+            onPressed: onGift,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Gift',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
             ),
           ),
           const SizedBox(height: 14),

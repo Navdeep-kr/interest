@@ -7,6 +7,7 @@ import 'package:mobile/features/media/presentation/controllers/floating_pip_cont
 import 'package:mobile/features/media/presentation/widgets/reel_download_bottom_sheet.dart';
 import 'package:mobile/features/monetization/domain/services/superfans_manager.dart';
 import 'package:mobile/features/monetization/presentation/widgets/superfans_paywall_card.dart';
+import 'package:mobile/features/monetization/presentation/widgets/creator_gift_sheet.dart';
 import 'audio_attribution_pill.dart';
 import 'save_to_collection_sheet.dart';
 import 'engagement_bar.dart';
@@ -207,6 +208,14 @@ class _ReelCardState extends State<ReelCard> with SingleTickerProviderStateMixin
             onLike: widget.onLike,
             onComment: widget.onComment,
             onSave: widget.onSave,
+            onGift: () {
+              CreatorGiftSheet.show(
+                context,
+                creatorId: reel.creator.id,
+                creatorUsername: reel.creator.username,
+                creatorAvatarUrl: reel.creator.avatarUrl,
+              );
+            },
             onSaveLongPress: () {
               SaveToCollectionSheet.show(
                 context,

@@ -95,6 +95,65 @@ class SuperfansManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  double _availableBalance = 1240.50;
+  final List<SentGiftEvent> _sentGifts = [];
+  final List<PayoutRecord> _payoutHistory = [
+    PayoutRecord(
+      id: 'payout_hist_1',
+      amount: 450.00,
+      method: 'Stripe Connect',
+      destinationAccount: 'acct_1N****892',
+      status: 'completed',
+      requestedAt: DateTime.now().subtract(const Duration(days: 14)),
+    ),
+  ];
+
+  double get availableBalance => _availableBalance;
+  List<SentGiftEvent> get sentGifts => List.unmodifiable(_sentGifts);
+  List<PayoutRecord> get payoutHistory => List.unmodifiable(_payoutHistory);
+
+  /// Sends an instant micro-gift or creator tip
+  void sendGift({
+    required String creatorId,
+    required String creatorName,
+    required CreatorGift gift,
+  }) {
+    final event = SentGiftEvent(
+      id: 'gift_${DateTime.now().millisecondsSinceEpoch}',
+      creatorId: creatorId,
+      creatorName: creatorName,
+      gift: gift,
+      sentAt: DateTime.now(),
+    );
+    _sentGifts.add(event);
+    _availableBalance += (gift.price * 0.85); // 85% creator payout share after store fees
+    notifyListeners();
+  }
+
+  /// Requests a payout / withdrawal to Stripe or PayPal
+  Future<bool> requestPayout({
+    required double amount,
+    required String method,
+    required String destinationAccount,
+  }) async {
+    if (amount <= 0 || amount > _availableBalance) return false;
+
+    _availableBalance -= amount;
+    _payoutHistory.insert(
+      0,
+      PayoutRecord(
+        id: 'payout_${DateTime.now().millisecondsSinceEpoch}',
+        amount: amount,
+        method: method,
+        destinationAccount: destinationAccount,
+        status: 'processing',
+        requestedAt: DateTime.now(),
+      ),
+    );
+    notifyListeners();
+    return true;
+  }
+
   /// Cancels a subscription
   void cancelSubscription(String creatorId) {
     _activeSubscriptions.remove(creatorId);

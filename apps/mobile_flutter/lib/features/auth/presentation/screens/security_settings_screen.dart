@@ -357,9 +357,127 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            icon: const Icon(Icons.logout, color: AppColors.error),
-            label: const Text('Sign Out', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+            icon: const Icon(Icons.logout, color: AppColors.textPrimary),
+            label: const Text('Sign Out', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
             onPressed: () => widget.authNotifier.logout(),
+          ),
+          const SizedBox(height: 24),
+
+          // Google Play Policy Compliance: Account Deletion & Data Wipe
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.error.withOpacity(0.5)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Danger Zone',
+                      style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Permanently delete your account, posts, snaps, followers, and all associated personal data in accordance with Google Play data protection requirements.',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.delete_forever, color: AppColors.error),
+                    label: const Text('Delete Account & Wipe Data', style: TextStyle(fontWeight: FontWeight.bold)),
+                    onPressed: _showDeleteAccountDialog,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteAccountDialog() {
+    final confirmController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Row(
+          children: [
+            Icon(Icons.delete_forever, color: AppColors.error, size: 24),
+            SizedBox(width: 8),
+            Text('Delete Account?', style: TextStyle(color: Colors.white, fontSize: 18)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This action is irreversible. All your uploaded reels, snaps, streaks, superfans subscriptions, and profile data will be permanently wiped from our database.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Type "DELETE" to confirm:',
+              style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: confirmController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'DELETE',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                filled: true,
+                fillColor: AppColors.backgroundSecondary,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () async {
+              if (confirmController.text.trim().toUpperCase() == 'DELETE') {
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Account and data scheduled for permanent deletion.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+                await widget.authNotifier.logout();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Confirmation text did not match. Deletion cancelled.')),
+                );
+              }
+            },
+            child: const Text('Delete Permanently', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

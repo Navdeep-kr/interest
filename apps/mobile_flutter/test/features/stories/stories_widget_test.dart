@@ -162,7 +162,8 @@ void main() {
 
       // Close dialog
       await tester.tap(find.text('Understood'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
       expect(find.text('Story Privacy'), findsNothing);
     });
   });

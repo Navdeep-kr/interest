@@ -208,6 +208,75 @@ class _SuperfansDashboardScreenState extends State<SuperfansDashboardScreen> {
             }),
             const SizedBox(height: 24),
 
+            // Creator Balance & Payouts Card
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.green.withOpacity(0.4)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'AVAILABLE CREATOR BALANCE',
+                            style: TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '\$${_manager.availableBalance.toStringAsFixed(2)}',
+                            style: const TextStyle(color: Colors.greenAccent, fontSize: 24, fontWeight: FontWeight.w900),
+                          ),
+                        ],
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade700,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.account_balance, size: 16, color: Colors.white),
+                        label: const Text('Withdraw', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        onPressed: _showPayoutDialog,
+                      ),
+                    ],
+                  ),
+                  if (_manager.payoutHistory.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    const Divider(color: Colors.white12),
+                    const SizedBox(height: 8),
+                    const Text('RECENT PAYOUTS', style: TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    ..._manager.payoutHistory.take(2).map((p) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('${p.method} (${p.destinationAccount})', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                              Text(
+                                '\$${p.amount.toStringAsFixed(2)} • ${p.status.toUpperCase()}',
+                                style: TextStyle(
+                                  color: p.status == 'completed' ? Colors.greenAccent : Colors.amberAccent,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
             // Recent Superfan Subscribers List
             const Text(
               'RECENT SUPERFANS',
@@ -305,6 +374,103 @@ class _SuperfansDashboardScreenState extends State<SuperfansDashboardScreen> {
             Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
             const SizedBox(height: 2),
             Text(subtitle, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPayoutDialog() {
+    final amountController = TextEditingController(text: '250.00');
+    String selectedMethod = 'Stripe Connect';
+    final accountController = TextEditingController(text: 'acct_1N9824creator');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: const Row(
+            children: [
+              Icon(Icons.account_balance, color: Colors.greenAccent),
+              SizedBox(width: 8),
+              Text('Withdraw Payout', style: TextStyle(color: Colors.white, fontSize: 17)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Available: \$${_manager.availableBalance.toStringAsFixed(2)}',
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Withdrawal Amount (\$)',
+                  labelStyle: const TextStyle(color: AppColors.textSecondary),
+                  filled: true,
+                  fillColor: AppColors.backgroundSecondary,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedMethod,
+                dropdownColor: AppColors.backgroundSecondary,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Payout Method',
+                  labelStyle: const TextStyle(color: AppColors.textSecondary),
+                  filled: true,
+                  fillColor: AppColors.backgroundSecondary,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'Stripe Connect', child: Text('Stripe Connect (Direct Deposit)')),
+                  DropdownMenuItem(value: 'PayPal', child: Text('PayPal')),
+                  DropdownMenuItem(value: 'Bank Transfer', child: Text('International Wire (SWIFT)')),
+                ],
+                onChanged: (val) {
+                  if (val != null) setDialogState(() => selectedMethod = val);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade700),
+              onPressed: () async {
+                final amt = double.tryParse(amountController.text) ?? 0;
+                final nav = Navigator.of(ctx);
+                final messenger = ScaffoldMessenger.of(context);
+                final success = await _manager.requestPayout(
+                  amount: amt,
+                  method: selectedMethod,
+                  destinationAccount: accountController.text,
+                );
+                nav.pop();
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      success
+                          ? 'Payout of \$$amt requested successfully! Funds transfer in 1-2 business days.'
+                          : 'Insufficient available creator balance for this payout.',
+                    ),
+                    backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
+                  ),
+                );
+              },
+              child: const Text('Confirm Payout', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
           ],
         ),
       ),

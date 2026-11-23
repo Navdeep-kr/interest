@@ -128,3 +128,59 @@ class SuperfanMember {
     required this.joinedAt,
   });
 }
+
+class CreatorGift {
+  final String id;
+  final String name;
+  final String emoji;
+  final double price;
+
+  const CreatorGift({
+    required this.id,
+    required this.name,
+    required this.emoji,
+    required this.price,
+  });
+
+  static const List<CreatorGift> availableGifts = [
+    CreatorGift(id: 'spark', name: 'Spark', emoji: '⚡', price: 0.99),
+    CreatorGift(id: 'fire', name: 'Hot Fire', emoji: '🔥', price: 1.99),
+    CreatorGift(id: 'star', name: 'Super Star', emoji: '⭐', price: 4.99),
+    CreatorGift(id: 'diamond', name: 'Diamond', emoji: '💎', price: 9.99),
+    CreatorGift(id: 'crown', name: 'Galaxy Crown', emoji: '👑', price: 19.99),
+  ];
+}
+
+class SentGiftEvent {
+  final String id;
+  final String creatorId;
+  final String creatorName;
+  final CreatorGift gift;
+  final DateTime sentAt;
+
+  const SentGiftEvent({
+    required this.id,
+    required this.creatorId,
+    required this.creatorName,
+    required this.gift,
+    required this.sentAt,
+  });
+}
+
+class PayoutRecord {
+  final String id;
+  final double amount;
+  final String method;
+  final String destinationAccount;
+  final String status;
+  final DateTime requestedAt;
+
+  const PayoutRecord({
+    required this.id,
+    required this.amount,
+    required this.method,
+    required this.destinationAccount,
+    required this.status,
+    required this.requestedAt,
+  });
+}

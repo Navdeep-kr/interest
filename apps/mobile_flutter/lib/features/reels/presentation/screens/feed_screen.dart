@@ -14,6 +14,8 @@ import 'package:mobile/features/stories/presentation/stories_tray_notifier.dart'
 import 'package:mobile/features/stories/presentation/widgets/stories_tray_widget.dart';
 import 'package:mobile/features/stories/presentation/screens/story_player_screen.dart';
 import 'package:mobile/features/stories/presentation/screens/story_composer_screen.dart';
+import 'package:mobile/features/safety/domain/models/safety_models.dart';
+import 'package:mobile/features/safety/presentation/dialogs/report_content_dialog.dart';
 import 'create_post_screen.dart';
 
 class FeedScreen extends StatefulWidget {
@@ -309,12 +311,38 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.report_problem_outlined, color: AppColors.accentRed),
-                title: const Text('Report post', style: TextStyle(color: AppColors.accentRed)),
+                leading: const Icon(Icons.block, color: AppColors.textPrimary),
+                title: Text('Block @${reel.creator.username}', style: const TextStyle(color: AppColors.textPrimary)),
+                subtitle: const Text(
+                  'Hide all content and prevent interactions from this creator',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                ),
                 onTap: () {
                   Navigator.of(ctx).pop();
+                  widget.notifier.hideReel(reel.id);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Report submitted for review.')),
+                    SnackBar(
+                      content: Text('Blocked @${reel.creator.username}. Their posts are now hidden.'),
+                      backgroundColor: Colors.grey.shade900,
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.report_problem_outlined, color: AppColors.accentRed),
+                title: const Text('Report post', style: TextStyle(color: AppColors.accentRed)),
+                subtitle: const Text(
+                  'Flag spam, harassment, inappropriate content, or copyright issues',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                ),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  ReportContentDialog.show(
+                    context,
+                    targetType: ReportTargetType.reel,
+                    targetId: reel.id,
+                    targetTitle: (reel.caption != null && reel.caption!.isNotEmpty) ? reel.caption! : 'Reel #${reel.id}',
+                    token: widget.authToken ?? 'mock_token',
                   );
                 },
               ),
