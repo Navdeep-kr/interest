@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_colors.dart';
+import 'core/theme/theme_manager.dart';
+import 'core/theme/theme_picker_sheet.dart';
 import 'core/storage/secure_storage_service.dart';
 import 'core/config/simple_mode_manager.dart';
 import 'core/localization/language_picker_sheet.dart';
@@ -629,6 +631,26 @@ class ProfileHubScreen extends StatelessWidget {
                             ),
                           ],
                         ),
+                      ),
+
+                      ListTile(
+                        leading: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: const BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        title: const Text('Theme & Gradient Aesthetics', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        subtitle: Text(
+                          '${ThemeManager().activeConfig.name} — Neon Aurora, Cyberpunk & Sunset',
+                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                        ),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          ThemePickerSheet.show(context);
+                        },
                       ),
 
                       ListTile(

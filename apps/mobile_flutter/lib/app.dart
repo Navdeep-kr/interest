@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'core/config/env_config.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_manager.dart';
 import 'core/localization/app_localizations.dart';
 
 import 'core/storage/secure_storage_service.dart';
@@ -42,7 +43,7 @@ class _InterestAppState extends State<InterestApp> {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: LocaleManager(),
+      animation: Listenable.merge([LocaleManager(), ThemeManager()]),
       builder: (context, _) {
         final localeManager = LocaleManager();
         return MaterialApp(
